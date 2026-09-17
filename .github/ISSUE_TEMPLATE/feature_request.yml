@@ -1,0 +1,9 @@
+name: "💡 Feature request / 기능 제안"
+description: Describe the use case and desired behavior.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and proposed behavior / 문제와 제안
+    validations:
+      required: true

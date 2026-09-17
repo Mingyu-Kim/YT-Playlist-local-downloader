@@ -1,0 +1,1 @@
+Read AGENTS.md and docs/ARCHITECTURE.md before making changes. Follow the same instructions as every other coding assistant. See docs/AI_DEVELOPMENT.md for task examples; do not duplicate or override the project rules here.

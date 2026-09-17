@@ -1,0 +1,20 @@
+name: "🐛 Bug report / 오류 제보"
+description: Report a reproducible problem without personal data.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version and OS / 버전 및 운영체제
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result / 재현 방법과 결과
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs / 개인정보를 제거한 로그
+      description: Do not include tokens, cookies, library databases or music files.

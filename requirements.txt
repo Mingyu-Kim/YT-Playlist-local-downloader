@@ -1,0 +1,9 @@
+-c requirements/constraints.txt
+# Runtime dependencies. Tested versions; update intentionally and run native CI.
+yt-dlp[default]==2026.8.19
+ytmusicapi==1.12.2
+mutagen==1.48.1
+rapidfuzz==3.14.6
+Pillow==12.3.0
+korean-romanizer==0.28.0
+requests==2.34.2
