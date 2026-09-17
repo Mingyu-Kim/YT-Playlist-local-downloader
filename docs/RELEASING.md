@@ -6,7 +6,7 @@ Python **3.14.0**; Windows x64, macOS Apple Silicon and macOS Intel. Build each 
 
 ## Build prerequisites
 
-- Windows: Python 3.14.0 and Git; use an MSYS2 UCRT64 shell with `make`, `diffutils`, `mingw-w64-ucrt-x86_64-gcc`, and `mingw-w64-ucrt-x86_64-pkgconf` (CI provisions these). A local portable w64devkit toolchain also works; run the shell recipe with Git Bash and put the toolchain bin first on PATH.
+- Windows: Python 3.14.0 and Git; use an MSYS2 UCRT64 shell with `make`, `diffutils`, `mingw-w64-ucrt-x86_64-gcc`, and `mingw-w64-ucrt-x86_64-pkgconf` (CI provisions these). A local portable w64devkit toolchain also works; run the shell recipe with Git Bash and keep Git Bash utilities first on PATH, followed by the toolchain bin. With Git under Program Files, set `BUILD_SHELL=C:/PROGRA~1/Git/usr/bin/sh.exe` to avoid native Make splitting the shell path. `SKIP_LAME_CONFIGURE=1` is only for retrying a completed local configuration, never fresh CI builds.
 - macOS: Python 3.14.0 and Xcode Command Line Tools (`clang`, `make`). Native system folder picker uses AppleScript, avoiding threaded Cocoa/Tk calls.
 - Create/activate `.venv`, then install `requirements/dev.txt`.
 
