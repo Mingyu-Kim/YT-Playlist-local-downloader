@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREFIX="$ROOT/.vendor/audio-prefix"
 mkdir -p "$PREFIX" "$ROOT/tools" "$ROOT/build/licenses/ffmpeg" "$ROOT/build/licenses/lame"
 JOBS="${JOBS:-4}"
+BUILD_SHELL="${BUILD_SHELL:-sh}"
 export CFLAGS="${CFLAGS:-} -O2"
 if [ "$(uname -s)" = "Windows_NT" ]; then export PATH_SEPARATOR=";" CC=gcc.exe AWK=awk.exe AR=ar.exe RANLIB=ranlib.exe NM=nm.exe STRIP=strip.exe; fi
 HOST_ARGS=
@@ -15,12 +16,14 @@ case "$(uname -s)" in
   *) SUFFIX= ;;
 esac
 cd "$ROOT/.vendor/lame-3.100"
-sh ./configure $HOST_ARGS --prefix="$PREFIX" --disable-shared --enable-static --disable-frontend --disable-dependency-tracking
-make SHELL=sh -j"$JOBS"
-make SHELL=sh install
+if [ "${SKIP_LAME_CONFIGURE:-0}" != 1 ]; then
+  sh ./configure $HOST_ARGS --prefix="$PREFIX" --disable-shared --enable-static --disable-frontend --disable-dependency-tracking
+fi
+make SHELL="$BUILD_SHELL" -j"$JOBS"
+make SHELL="$BUILD_SHELL" install
 cd "$ROOT/.vendor/ffmpeg-7.1.2"
 sh ./configure $FFMPEG_TARGET --prefix="$PREFIX" --disable-autodetect --disable-network --disable-doc --disable-debug   --disable-ffplay --disable-ffprobe --disable-shared --enable-static --disable-x86asm   --disable-everything --enable-ffmpeg --enable-avfilter --enable-swresample   --enable-protocol=file,pipe --enable-demuxer=mov,matroska,ogg,mp3,flac,wav,aac   --enable-decoder=aac,aac_fixed,opus,vorbis,mp3,mp3float,flac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le   --enable-parser=aac,mpegaudio,opus,vorbis,flac --enable-encoder=libmp3lame   --enable-muxer=mp3 --enable-filter=aresample,aformat,anull,sine --enable-indev=lavfi   --enable-libmp3lame --extra-cflags="-I$PREFIX/include" --extra-ldflags="-L$PREFIX/lib ${LDFLAGS:-}"
-make SHELL=sh -j"$JOBS"
+make SHELL="$BUILD_SHELL" -j"$JOBS"
 cp "ffmpeg$SUFFIX" "$ROOT/tools/ffmpeg$SUFFIX"
 cp COPYING.LGPLv2.1 LICENSE.md "$ROOT/build/licenses/ffmpeg/"
 cp "$ROOT/.vendor/lame-3.100/COPYING" "$ROOT/build/licenses/lame/"

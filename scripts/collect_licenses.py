@@ -24,6 +24,8 @@ def main():
                 parts = [p for p in path.parts if p not in ('..', '/', '\\')]
                 target = out / name / Path(*parts)
                 target.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(source, target)
+    if sys.platform == 'win32':
+        shutil.copytree(ROOT/'licenses/native-windows',out/'native-windows',dirs_exist_ok=True)
     python_license = Path(sys.base_prefix) / 'LICENSE.txt'
     if python_license.exists():shutil.copy2(python_license, out / 'PYTHON-LICENSE.txt')
     (ROOT / 'build/dependencies.json').write_text(json.dumps(inventory, indent=2), encoding='utf-8')
