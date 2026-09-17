@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-## 0.1.0 — Initial repository release
+## 0.1.1 — Native release validation
+
+- Avoid reverse DNS during loopback server startup, which stalled macOS CI.
+- The initial 0.1.0 tag did not pass all native checks and was not released.
+
+## 0.1.0 — Initial repository setup
 
 - Local YouTube Music playlist downloads as tagged 320 kbps MP3.
 - English/Korean UI, automatic themes and optional Korean romanization.

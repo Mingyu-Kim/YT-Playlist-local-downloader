@@ -3,8 +3,16 @@ import argparse,json,os,secrets,sys,threading,webbrowser
 from console_ui import Console
 from platform_support import lock_instance,open_folder,choose_folder
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from urllib.parse import urlparse
+
+
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer performs reverse DNS here, which can stall macOS startup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def make_server(controller,root,token):
@@ -68,7 +76,7 @@ def make_server(controller,root,token):
                 else:self.reply(404,{'error':'Not found'});return
                 self.reply(200,{'ok':True})
             except Exception as exc:self.reply(400,{'error':str(exc)})
-    server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.daemon_threads=True
+    server=LoopbackServer(('127.0.0.1',0),Handler);server.daemon_threads=True
     return server
 
 

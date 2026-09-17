@@ -31,3 +31,16 @@ def test_checksum_failure_preserves_existing_tool(tmp_path,monkeypatch):
         prepare_tools.fetch('https://example.test/tool',file,'0'*64)
     assert file.read_bytes()==b'previous binary'
     assert not file.with_suffix('.tmp').exists()
+
+
+def test_loopback_startup_does_not_need_dns(monkeypatch):
+    import socket
+    from app import make_server
+    from common import ROOT
+    from controller import Controller
+    def forbidden(*args):raise AssertionError('Loopback startup must not perform reverse DNS')
+    monkeypatch.setattr(socket,'getfqdn',forbidden)
+    server=make_server(Controller(),ROOT,'test-token')
+    try:
+        assert server.server_name=='127.0.0.1' and server.server_port>0
+    finally:server.server_close()
