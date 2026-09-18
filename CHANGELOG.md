@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Refresh English/Korean usage guides, filename examples, staging/retry behavior, safe folder cleanup and Windows-only local packaging instructions.
-
 ## 0.2.1 — Staged audio reuse and folder cleanup
+
+- Refresh English/Korean usage guides, filename examples, staging/retry behavior, safe folder cleanup and Windows-only local packaging instructions.
 
 - Preserve staged audio through failed/cancelled saves and reuse it on retry without another download or encode.
 - Clean empty old parent directories after successful folder reorganization, preserving the target root and unrelated files.
