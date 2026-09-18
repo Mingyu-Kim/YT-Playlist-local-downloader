@@ -10,7 +10,9 @@
 - 🔎 YouTube Music + MusicBrainz metadata; review songs while the remaining search continues.
 - ▶️ Play/stop previews and clickable YouTube Music titles.
 - 🌏 English metadata preferred; optional Korean romanization (`안녕 → Annyeong`).
-- 🚗 One flat folder, with `Artist - Title.mp3` filenames.
+- 🚗 Custom filenames with live previews; flat, artist, decade, or combined folders.
+- 📂 Load existing MP3s recursively to edit tags and reorganize without re-encoding.
+- ⚡ Audio downloads in the background during review; failed audio transfers/conversions retry up to five times.
 - ♻️ Embedded YouTube identifiers prevent duplicate downloads—even after renaming files or losing the database.
 - 🌓 English/Korean interface, system light/dark theme, visible terminal logs.
 
@@ -29,14 +31,20 @@ Each archive includes a native executable, bundled Node/FFmpeg, notices and chec
 1. Launch the app. A terminal shows the local URL and opens your browser.
 2. Paste a **public or unlisted YouTube Music playlist**, choose an output folder, then select **Find songs & metadata**.
 3. Review/edit songs as they appear. Use **▶ / ■** to preview/stop, or click a title to open YouTube Music.
-4. Resolve uncertain matches, then select **Download songs**. Searching and pending edits finish before downloading.
+4. Choose a filename format and folder structure using the live preview. Audio is already downloading into temporary staging while you review; resolve uncertain matches, then select **Finish review & save songs** to apply final tags and paths. Skipped songs are not published. Cancellation stops transfers and retries; saving later can resume. Staged audio is temporary and is not recovered after an app restart.
 5. Keep the terminal open. Type **`o` + Enter** to reopen the browser, **`s`** for status, or **`q`** to quit. **Ctrl+C** also quits.
 
 > YouTube audio is already lossy; 320 kbps MP3 does not restore lost detail. Metadata is included when available, never invented. Romanization is transliteration, not translation. Embedded playback may be restricted; title links are the fallback. Only download material you are authorized to download and follow applicable service terms.
 
 ## ♻️ Existing music & privacy
 
-Before downloading, the app scans MP3s directly in the selected folder. YouTube ID/source tags restore the inventory when files or the database move. Old tagged files are upgraded without re-downloading audio. Untagged or damaged files are not matched by filename. Metadata changes reuse and retag existing audio.
+Before downloading, the app scans MP3s recursively in the selected folder, excluding symbolic links, directory junctions and temporary work folders. YouTube ID/source tags restore the inventory when files or the database move. Old tagged files are upgraded without re-downloading audio. Untagged or damaged files are not matched by filename. Metadata changes reuse and retag existing audio.
+
+Use **Load songs from this folder** to review existing MP3s, including files without YouTube tags. Edit their metadata and select **Apply tags & folder structure**. Files missing title or artist need review. Damaged/unreadable MP3s are skipped with a log entry. Files changed since loading are protected; reload the folder before editing those files again.
+
+Filename fields: `{artist}`, `{title}`, `{album}`, `{track}`, `{decade}`. For example, `{title}` with Artist folders gives `Artist/Song.mp3`; Decade folders give `2010s/Song.mp3`. Decades are ten-year groups (`1990s`, `2000s`, `2010s`, `2020s`), never individual-year folders. Missing dates use `Unknown decade`. No organization keeps files directly in the target folder. Unsafe filename characters are replaced, and name collisions receive an identifier suffix or fail safely. Existing audio is copied and retagged, never re-encoded.
+
+Audio fetching and conversion use one initial attempt plus up to five retries with cancellable backoff. A failed prefetch is shown in the song row; saving explicitly retries it. Existing verified downloads are reused during both stages.
 
 The server listens on **127.0.0.1 only**, with a random port, request token and Host/Origin checks. There is no remote control or telemetry service. YouTube/YouTube Music, MusicBrainz and artwork hosts receive requests needed for downloads, lookups and previews. Private/sign-in-only playlists are not supported.
 

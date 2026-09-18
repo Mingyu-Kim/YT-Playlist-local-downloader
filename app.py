@@ -54,6 +54,13 @@ def make_server(controller,root,token):
                 if not isinstance(data,dict):raise ValueError('Expected a JSON object')
                 path=urlparse(self.path).path
                 if path=='/api/analyze':controller.analyze(data)
+                elif path=='/api/preview-layout':
+                    from text_rules import relative_path,display_tags
+                    with controller.lock:
+                        samples=[t['tags'] for t in controller.state['tracks'][:3]] or [{'TITLE':['Song'],'ARTIST':['Artist'],'ALBUM':['Album'],'DATE':['2017'],'TRACKNUMBER':['1']}]
+                    paths=[str(relative_path(display_tags(tags,bool(data.get('romanize'))),data.get('pattern'),data.get('folders'))) for tags in samples]
+                    self.reply(200,{'paths':paths});return
+                elif path=='/api/load-folder':controller.load_folder(data)
                 elif path=='/api/download':controller.download(data)
                 elif path=='/api/edit':controller.edit(data)
                 elif path=='/api/cancel':controller.cancel.set()

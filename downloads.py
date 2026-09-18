@@ -9,7 +9,7 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3,TIT2,TPE1,TPE2,TALB,TDRC,TCOM,TCON,TSRC,TCOP,TRCK,TPOS,TXXX,USLT,APIC,WOAS
 from yt_dlp import YoutubeDL
 from common import DATA,binary
-from text_rules import display_tags,filename
+from text_rules import display_tags,relative_path,DEFAULT_FORMAT,romanize
 
 
 class Cancelled(Exception):pass
@@ -24,8 +24,15 @@ def artwork(url):
         image=image.convert('RGB');image.thumbnail((1000,1000));out=io.BytesIO();image.save(out,'JPEG',quality=92);return out.getvalue()
 
 
-def write_tags(path,tags,cover=None):
-    audio=MP3(path);audio.tags=ID3()
+def write_tags(path,tags,cover=None,preserve=False,latin=False):
+    audio=MP3(path)
+    if not preserve or audio.tags is None:audio.tags=ID3()
+    else:
+        if latin:
+            for frame in audio.tags.values():
+                if hasattr(frame,'text') and not (frame.FrameID=='TXXX' and frame.desc in ('YOUTUBE_ID','SOURCE','YOUTUBE_MUSIC_URL','YTPL_PROFILE')):
+                    frame.text=romanize(frame.text) if isinstance(frame.text,str) else [romanize(v) for v in frame.text]
+        for key in ('TIT2','TPE1','TPE2','TALB','TDRC','TCOM','TCON','TRCK','TPOS'):audio.tags.delall(key)
     frames={'TITLE':TIT2,'ARTIST':TPE1,'ALBUMARTIST':TPE2,'ALBUM':TALB,'DATE':TDRC,'COMPOSER':TCOM,'GENRE':TCON,'ISRC':TSRC,'COPYRIGHT':TCOP}
     for k,v in tags.items():
         if not v:continue
@@ -35,7 +42,7 @@ def write_tags(path,tags,cover=None):
     for key,total,frame in [('TRACKNUMBER','TRACKTOTAL',TRCK),('DISCNUMBER','DISCTOTAL',TPOS)]:
         if tags.get(key):audio.tags.add(frame(encoding=1,text=[tags[key][0]+('/'+tags[total][0] if tags.get(total) else '')]))
     if tags.get('SOURCE'):audio.tags.add(WOAS(url=tags['SOURCE'][0]))
-    if cover:audio.tags.add(APIC(encoding=1,mime='image/jpeg',type=3,desc='Cover',data=cover))
+    if cover and (not preserve or not audio.tags.getall('APIC')):audio.tags.add(APIC(encoding=1,mime='image/jpeg',type=3,desc='Cover',data=cover))
     audio.save(v2_version=3)
     return {'duration':audio.info.length,'bitrate':audio.info.bitrate,'sample_rate':audio.info.sample_rate}
 
@@ -79,7 +86,7 @@ class Inventory:
         if output in self.scanned:return 0
         count=0;seen=set();log=logging.getLogger('ytpl')
         if output.is_dir():
-            for path in sorted(output.iterdir(),key=lambda p:p.name.casefold()):
+            for path in music_files(output):
                 if cancel and cancel.is_set():raise Cancelled()
                 if path.suffix.lower()!='.mp3' or not path.is_file():continue
                 try:
@@ -116,23 +123,30 @@ class Logger:
 
 
 def ydl_options(callback=lambda m:None):
-    return {'quiet':True,'no_warnings':False,'noplaylist':True,'socket_timeout':20,'retries':2,
+    return {'quiet':True,'no_warnings':False,'noplaylist':True,'socket_timeout':20,'retries':0,'fragment_retries':0,
             'cachedir':str(DATA/'yt-cache'),'js_runtimes':{'node':{'path':binary('node')}},'logger':Logger(callback)}
 
 
-def download(item,output,latin,cancel,progress,inventory=None):
+def download(item,output,latin,cancel,progress,inventory=None,pattern=None,folders='none',staged=None):
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=True)
     inventory=inventory or Inventory();inventory.scan(output,cancel)
     cached=inventory.find(output,item['id'])
+    if item.get('local_file'):
+        local=Path(item['local_file'])
+        if not local.is_file() or not local.resolve().is_relative_to(output) or digest(local)!=item['local_digest']:
+            raise ValueError('Local file changed since loading; reload the folder')
+        cached=(str(local),item['local_digest'],'')
     tags=display_tags(item['tags'],latin)
-    tags.update(YOUTUBE_ID=[item['id']],SOURCE=['https://www.youtube.com/watch?v='+item['id']],YOUTUBE_MUSIC_URL=['https://music.youtube.com/watch?v='+item['id']],SOURCE_SERVICE=['YouTube'])
+    if not item.get('local_file') or re.fullmatch(r'[A-Za-z0-9_-]{11}',item['id']):tags.update(YOUTUBE_ID=[item['id']],SOURCE=['https://www.youtube.com/watch?v='+item['id']],YOUTUBE_MUSIC_URL=['https://music.youtube.com/watch?v='+item['id']],SOURCE_SERVICE=['YouTube'])
     tags.pop('YTPL_PROFILE',None)
     bitrate=round(MP3(cached[0]).info.bitrate/1000) if cached else 320
-    tags['ENCODING']=[f'MP3 {bitrate} kbps; YouTube lossy source']
+    if not item.get('local_file'):tags['ENCODING']=[f'MP3 {bitrate} kbps; YouTube lossy source']
     profile=hashlib.sha256(json.dumps([tags,item.get('cover_url'),item.get('mb_cover_url')],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     tags['YTPL_PROFILE']=[profile]
-    if cached and cached[2]==profile:return {'file':cached[0],'status':'reused'}
-    target=output/filename(tags)
+    target=output/relative_path(tags,pattern or DEFAULT_FORMAT,folders)
+    if not target.resolve().is_relative_to(output):raise ValueError('Output path escapes the selected folder')
+    if cached and cached[2]==profile and (pattern is None or Path(cached[0])==target):return {'file':cached[0],'status':'reused'}
+    target.parent.mkdir(parents=True,exist_ok=True)
     if target.exists() and (not cached or Path(cached[0])!=target):
         target=target.with_stem(target.stem+' ['+item['id']+']')
         if target.exists() and (not cached or Path(cached[0])!=target):raise ValueError('Output filename is occupied by another file: '+target.name)
@@ -144,39 +158,108 @@ def download(item,output,latin,cancel,progress,inventory=None):
             if pictures:cover=pictures[0].data
             shutil.copy2(cached[0],audio)
         else:
-            def hook(data):
-                if cancel.is_set():raise Cancelled()
-                if data['status']=='downloading':
-                    total=data.get('total_bytes') or data.get('total_bytes_estimate')
-                    if total:progress(round(min(99,100*data.get('downloaded_bytes',0)/total)))
-            options={**ydl_options(lambda m:item['warnings'].append(m)), 'format':'bestaudio/best','outtmpl':str(temp/'source.%(ext)s'),'progress_hooks':[hook]}
-            with YoutubeDL(options) as ydl:
-                info=ydl.extract_info('https://www.youtube.com/watch?v='+item['id'],download=True)
-                original=Path(ydl.prepare_filename(info))
-            if cancel.is_set():raise Cancelled()
-            command=[binary('ffmpeg'),'-nostdin','-v','error','-y','-i',str(original),'-map','0:a:0','-vn','-map_metadata','-1','-c:a','libmp3lame','-b:a','320k','-ar','48000',str(audio)]
-            with (temp/'ffmpeg.log').open('wb') as log:
-                process=subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=log,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
-                try:
-                    import time
-                    started=time.monotonic()
-                    while process.poll() is None:
-                        if cancel.wait(.1):process.terminate();raise Cancelled()
-                        if time.monotonic()-started>900:process.terminate();raise RuntimeError('Audio conversion timed out')
-                    if process.returncode:raise RuntimeError('Audio conversion failed: '+(temp/'ffmpeg.log').read_text(errors='replace')[-1500:])
-                finally:
-                    if process.poll() is None:process.kill()
-                    process.wait()
+            if staged and Path(staged).is_file():shutil.copy2(staged,audio)
+            else:retry_audio(lambda:fetch_audio(item,temp,audio,cancel,progress),cancel)
         for url in dict.fromkeys(filter(None,[item.get('mb_cover_url'),item.get('cover_url')])):
             if cancel.is_set():raise Cancelled()
             try:cover=artwork(url);break
             except Exception:item['warnings'].append('Album artwork unavailable from one source')
-        quality=write_tags(audio,tags,cover)
+        quality=write_tags(audio,tags,cover,preserve=bool(item.get('local_file')),latin=latin)
         if quality['duration']<=0 or (not cached and quality['bitrate']<319000):raise RuntimeError('Output audio validation failed')
         if cancel.is_set():raise Cancelled()
         # Refuse to replace any file changed while the download was running.
         if target.exists() and (not cached or Path(cached[0])!=target or digest(target)!=cached[1]):raise ValueError('Output file changed; not overwritten')
-        os.replace(audio,target)
+        if cached and (not Path(cached[0]).is_file() or digest(cached[0])!=cached[1]):raise ValueError('Source file changed; not overwritten')
+        if cached and Path(cached[0])==target:os.replace(audio,target)
+        else:
+            # Hard-link publication fails atomically if another file claims the name.
+            publish_new(audio,target)
         inventory.save(output,item['id'],target,profile)
         if cached and Path(cached[0])!=target and Path(cached[0]).is_file() and digest(cached[0])==cached[1]:Path(cached[0]).unlink()
-    return {'file':str(target),'status':'reused' if cached else 'downloaded','quality':quality}
+    result={'file':str(target),'status':'reused' if cached else 'downloaded','quality':quality}
+    if item.get('local_file'):result.update(local_file=str(target),local_digest=digest(target))
+    return result
+
+
+def fetch_audio(item,temp,audio,cancel,progress):
+    def hook(data):
+        if cancel.is_set():raise Cancelled()
+        if data['status']=='downloading':
+            total=data.get('total_bytes') or data.get('total_bytes_estimate')
+            if total:progress(round(min(99,100*data.get('downloaded_bytes',0)/total)))
+    options={**ydl_options(lambda m:item['warnings'].append(m)), 'format':'bestaudio/best','outtmpl':str(temp/'source.%(ext)s'),'progress_hooks':[hook]}
+    with YoutubeDL(options) as ydl:
+        info=ydl.extract_info('https://www.youtube.com/watch?v='+item['id'],download=True)
+        original=Path(ydl.prepare_filename(info))
+    if cancel.is_set():raise Cancelled()
+    command=[binary('ffmpeg'),'-nostdin','-v','error','-y','-i',str(original),'-map','0:a:0','-vn','-map_metadata','-1','-c:a','libmp3lame','-b:a','320k','-ar','48000',str(audio)]
+    with (temp/'ffmpeg.log').open('wb') as log:
+        process=subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=log,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        try:
+            import time
+            started=time.monotonic()
+            while process.poll() is None:
+                if cancel.wait(.1):process.terminate();raise Cancelled()
+                if time.monotonic()-started>900:process.terminate();raise RuntimeError('Audio conversion timed out')
+            if process.returncode:raise RuntimeError('Audio conversion failed: '+(temp/'ffmpeg.log').read_text(errors='replace')[-1500:])
+        finally:
+            if process.poll() is None:process.kill()
+            process.wait()
+
+
+def retry_audio(work,cancel):
+    """Initial attempt plus at most five cancellable retries."""
+    for attempt in range(6):
+        if cancel.is_set():raise Cancelled()
+        try:return work()
+        except Cancelled:raise
+        except Exception:
+            if cancel.is_set():raise Cancelled()
+            if attempt==5:raise
+            if cancel.wait(min(2**attempt,16)):raise Cancelled()
+
+
+def music_files(output):
+    for root,dirs,files in os.walk(output,followlinks=False):
+        dirs[:]=sorted(d for d in dirs if not d.startswith('.yt-pl-') and not Path(root,d).is_symlink() and not os.path.isjunction(Path(root,d)))
+        for name in sorted(files):
+            path=Path(root,name)
+            if path.suffix.lower()=='.mp3' and not path.is_symlink() and path.resolve().is_relative_to(Path(output).resolve()):yield path
+
+
+def load_local(output,cancel):
+    items=[]
+    frames={'TIT2':'TITLE','TPE1':'ARTIST','TPE2':'ALBUMARTIST','TALB':'ALBUM','TDRC':'DATE','TCOM':'COMPOSER','TCON':'GENRE','TRCK':'TRACKNUMBER','TPOS':'DISCNUMBER','TSRC':'ISRC','TCOP':'COPYRIGHT'}
+    for path in music_files(output):
+        if cancel.is_set():raise Cancelled()
+        try:
+            before=digest(path);audio=MP3(path)
+            if audio.info.length<=0:continue
+            tags={}
+            for frame in (audio.tags or {}).values():
+                if frame.FrameID in frames:tags[frames[frame.FrameID]]=[str(v) for v in frame.text]
+                elif frame.FrameID=='TXXX':tags[frame.desc]=[str(v) for v in frame.text]
+            if digest(path)!=before:continue
+            video=youtube_id(audio.tags)
+            identity='local-'+hashlib.sha256(str(path).encode()).hexdigest()[:20]
+            items.append({'id':identity,'source_id':video,'tags':tags,'local_file':str(path),'local_digest':before,'status':'ready' if tags.get('TITLE') and tags.get('ARTIST') else 'review','warnings':[],'candidates':[]})
+        except Exception as exc:logging.getLogger('ytpl').warning('Could not load %s: %s',path.name,exc)
+    return items
+
+
+def publish_new(audio,target):
+    if os.name=='nt':
+        # Windows rename refuses an existing destination, including on FAT/exFAT.
+        os.rename(audio,target)
+        return
+    try:os.link(audio,target)
+    except FileExistsError:raise
+    except OSError:
+        # Some removable-drive filesystems do not support hard links.
+        with open(target,'xb') as dest:
+            try:
+                with open(audio,'rb') as source:shutil.copyfileobj(source,dest)
+                dest.flush();os.fsync(dest.fileno())
+            except BaseException:
+                dest.close();Path(target).unlink();raise
+    Path(audio).unlink()

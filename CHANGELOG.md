@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add interactive filename fields and path previews with flat, artist, decade and combined folder layouts.
+- Load existing MP3s recursively for metadata edits and safe reorganization without re-encoding.
+- Prefetch audio during search/review and apply committed metadata only when saving.
+- Retry failed audio transfers/conversions up to five times with cancellable backoff.
+- Preserve collision protection, changed-file checks and embedded-source recovery across nested folders.
+
 ## 0.1.1 — Native release validation
 
 - Avoid reverse DNS during loopback server startup, which stalled macOS CI.

@@ -1,11 +1,12 @@
 """Thread-safe job controller for the local browser interface."""
-import copy,json,re,threading
+import copy,json,re,threading,tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse,parse_qs
 from common import DATA,atomic_json
 from metadata import Metadata
-from downloads import download,Cancelled,ydl_options,Inventory
-from text_rules import display_tags,romanize
+from downloads import download,Cancelled,ydl_options,Inventory,fetch_audio,retry_audio,load_local
+from text_rules import display_tags,romanize,validate_layout,DEFAULT_FORMAT
 from yt_dlp import YoutubeDL
 
 
@@ -20,7 +21,8 @@ def playlist_id(value):
 class Controller:
     def __init__(self):
         self.lock=threading.RLock();self.cancel=threading.Event();self.worker=None;self.meta=None;self.edits_done=threading.Event();self.edits_done.set()
-        self.state={'phase':'idle','busy':False,'title':'','tracks':[],'message':'','progress':0,'output':str(Path.home()/'Music'/'YT-PL-Downloader'),'romanize':False}
+        self.staging=tempfile.TemporaryDirectory(prefix='.yt-pl-audio-',dir=DATA);self.staged={}
+        self.state={'pattern':DEFAULT_FORMAT,'folders':'none','audio':{},'phase':'idle','busy':False,'title':'','tracks':[],'message':'','progress':0,'output':str(Path.home()/'Music'/'YT-PL-Downloader'),'romanize':False}
         path=DATA/'session.json'
         if path.exists():
             try:
@@ -32,6 +34,7 @@ class Controller:
             except (ValueError,OSError):pass
 
         self.state['editing']=[]
+        self.state['audio']={}
 
     def save(self):
         with self.lock:atomic_json(DATA/'session.json',self.state)
@@ -64,9 +67,12 @@ class Controller:
         if output.exists() and not output.is_dir():raise ValueError('Output must be a folder')
         limit=int(data.get('limit') or 0)
         if limit<0 or limit>10000:raise ValueError('Invalid track limit')
-        def work():
+        pattern,folders=validate_layout(data.get('pattern',self.state['pattern']),data.get('folders',self.state['folders']))
+        def scan():
+            self.staged.clear();self.staging.cleanup()
+            self.staging=tempfile.TemporaryDirectory(prefix='.yt-pl-audio-',dir=DATA)
             self.meta=Metadata()
-            with self.lock:self.state.update(phase='analyzing',title='',tracks=[],playlist=data['playlist'],output=str(output.resolve()),romanize=bool(data.get('romanize')),message='',progress=0)
+            with self.lock:self.state.update(phase='analyzing',title='',tracks=[],mode='playlist',pattern=pattern,folders=folders,audio={},playlist=data['playlist'],output=str(output.resolve()),romanize=bool(data.get('romanize')),message='',progress=0)
             try:
                 playlist=self.meta.yt.get_playlist(pid,limit=limit or None)
                 tracks=playlist.get('tracks',[]);title=playlist.get('title') or pid
@@ -79,6 +85,11 @@ class Controller:
             seen=set();tracks=[t for t in tracks if t.get('videoId') and not (t['videoId'] in seen or seen.add(t['videoId']))]
             if not tracks:raise ValueError('Playlist contains no accessible songs')
             with self.lock:self.state['title']=title
+            inventory=Inventory();inventory.scan(output,self.cancel)
+            for track in tracks:
+                video=track['videoId']
+                if re.fullmatch(r'[A-Za-z0-9_-]{11}',video) and not inventory.find(output.resolve(),video):
+                    pool.submit(self.prefetch,video)
             for i,t in enumerate(tracks):
                 if self.cancel.is_set():raise Cancelled()
                 try:
@@ -90,12 +101,42 @@ class Controller:
                     self.state['tracks'].append(item);self.state['progress']=round((i+1)*100/len(tracks));self.state['message']=f'{i+1} / {len(tracks)}'
                 self.save()
             with self.lock:self.state.update(phase='review',message='',progress=100)
+        def work():
+            nonlocal pool
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                try:scan()
+                except BaseException:
+                    self.cancel.set();raise
+        pool=None
+        self.start(work)
+
+    def prefetch(self,video):
+        with self.lock:self.state['audio'][video]='fetching'
+        try:
+            if video not in self.staged:
+                folder=Path(self.staging.name)/video;folder.mkdir(exist_ok=True)
+                audio=folder/'audio.mp3'
+                item={'id':video,'warnings':[]}
+                retry_audio(lambda:fetch_audio(item,folder,audio,self.cancel,lambda n:None),self.cancel)
+                self.staged[video]=str(audio)
+            with self.lock:self.state['audio'][video]='staged'
+        except Exception:
+            with self.lock:self.state['audio'][video]='cancelled' if self.cancel.is_set() else 'failed'
+
+    def load_folder(self,data):
+        output=Path(str(data.get('output',''))).expanduser()
+        if not output.is_absolute() or not output.is_dir():raise ValueError('Choose an existing absolute folder')
+        pattern,folders=validate_layout(data.get('pattern',self.state['pattern']),data.get('folders',self.state['folders']))
+        def work():
+            with self.lock:self.state.update(phase='loading',message='',progress=0)
+            items=load_local(output.resolve(),self.cancel)
+            with self.lock:self.state.update(output=str(output.resolve()),tracks=items,title=output.name,mode='local',phase='review',progress=100,pattern=pattern,folders=folders,audio={},romanize=bool(data.get('romanize',self.state['romanize'])))
         self.start(work)
 
     def edit(self,data):
         # Completed scan results are immutable to the scan worker; only review edits touch them.
         with self.lock:
-            if self.state['busy'] and self.state['phase']!='analyzing':
+            if self.state['busy'] and self.state['phase'] not in ('analyzing','review'):
                 raise ValueError('Wait until the current operation finishes')
             item=next((t for t in self.state['tracks'] if t['id']==data.get('id')),None)
             if not item:raise ValueError('Track not found')
@@ -131,7 +172,8 @@ class Controller:
             if not self.state['tracks']:raise ValueError('Analyze a playlist first')
             latin=bool(data.get('romanize',self.state['romanize']))
             if self.state['busy'] or self.state.get('editing'):raise ValueError('An operation is already running')
-            self.state['romanize']=latin
+            pattern,folders=validate_layout(data.get('pattern',self.state['pattern']),data.get('folders',self.state['folders']))
+            self.state.update(romanize=latin,pattern=pattern,folders=folders)
         def work():
             with self.lock:self.state.update(phase='downloading',message='',progress=0)
             items=[t for t in self.state['tracks'] if t['status'] not in ('skipped',) and t['tags'].get('ARTIST')]
@@ -145,12 +187,16 @@ class Controller:
                 def progress(value):
                     with self.lock:self.state['progress']=round((i+value/100)*100/max(1,len(items)))
                 try:
-                    result=download(item,self.state['output'],latin,self.cancel,progress,inventory)
+                    result=download(item,self.state['output'],latin,self.cancel,progress,inventory,pattern,folders,self.staged.get(item['id']))
                     with self.lock:item.update(result)
+                    staged=self.staged.pop(item['id'],None)
+                    if staged:Path(staged).unlink(missing_ok=True)
                 except Exception as exc:
                     with self.lock:item.update(status='error',error=str(exc))
                     if self.cancel.is_set():raise Cancelled()
                 with self.lock:self.state['progress']=round((i+1)*100/max(1,len(items)))
                 self.save()
             with self.lock:self.state.update(phase='complete',message='')
+            self.staged.clear();self.staging.cleanup()
+            self.staging=tempfile.TemporaryDirectory(prefix='.yt-pl-audio-',dir=DATA)
         self.start(work)

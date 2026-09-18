@@ -164,6 +164,7 @@ def test_review_during_scan_preserves_edits(tmp_path,monkeypatch):
             return {'id':t['videoId'],'tags':{'TITLE':['Original'],'ARTIST':['Artist']},'status':'review','warnings':[],'candidates':[]}
         def enrich(self,item):return item
     monkeypatch.setattr(module,'Metadata',FakeMetadata)
+    monkeypatch.setattr(module.Controller,'prefetch',lambda *a:None)
     c=module.Controller()
     c.analyze({'playlist':'https://music.youtube.com/playlist?list=PLMTDok-Dtp0Q','output':str(tmp_path)})
     try:
@@ -186,6 +187,7 @@ def test_candidate_edit_blocks_download_and_commits_atomically(monkeypatch):
             entered.set();assert release.wait(5)
             item['tags']['TITLE']=['Matched'];return item
     monkeypatch.setattr(module,'Metadata',FakeMetadata)
+    monkeypatch.setattr(module.Controller,'prefetch',lambda *a:None)
     c=module.Controller();c.state.update(busy=False,phase='review',tracks=[{'id':'abcdefghijk','tags':{'TITLE':['Original'],'ARTIST':['Artist']},'status':'ready','candidates':[{'id':'match'}]}])
     def edit():
         try:c.edit({'id':'abcdefghijk','candidate':'match'})

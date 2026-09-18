@@ -4,11 +4,11 @@ Read this file, README.md (or README.ko.md), docs/ARCHITECTURE.md and the releva
 
 ## Product contract
 
-- This is YT-PL-Downloader, independent of MusicManager. No Tidal, backups/history UI, or year folders.
+- This is YT-PL-Downloader, independent of MusicManager. No Tidal or backups/history UI. Date organization uses decades, never individual-year folders.
 - Local loopback web server + native console executable. Preserve `o`, `s`, `q`, Ctrl+C and single-instance locking on Windows/macOS.
-- Output: flat folder, Artist - Title MP3, 320 kbps for new downloads. Do not re-encode existing audio to change tags.
+- Output: user-defined filename format and flat/artist/decade folder structure; default Artist - Title MP3 in a flat folder. 320 kbps for new downloads. Do not re-encode existing audio to change tags.
 - Prefer published English metadata; never translate/guess music identities. Optional Korean Revised Romanization applies to ALL textual tags and filenames.
-- Review completed songs during search; no downloads until scan and edits finish. Preserve committed edits. Network operations must not hold the controller state lock.
+- Review completed songs during search; prefetch audio during scan/review into temporary staging, but publish only after scan and edits finish. Preserve committed edits. Network operations must not hold the controller state lock.
 - Recover downloads from embedded YouTube source identifiers, not filenames. Protect unrelated files and detect changed files before overwriting.
 - Maintain EN/KO labels, system light/dark theme, keyboard labels, and preview stop behavior.
 

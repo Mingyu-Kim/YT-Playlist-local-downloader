@@ -32,3 +32,38 @@ def filename(tags):
     value=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',value).strip(' .')[:170].rstrip(' .')
     if re.fullmatch(r'(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])',value):value='_'+value
     return (value or 'Untitled')+'.mp3'
+
+
+DEFAULT_FORMAT = '{artist} - {title}'
+FOLDERS = ('none', 'artist', 'decade', 'artist/decade', 'decade/artist')
+
+
+def validate_layout(pattern=DEFAULT_FORMAT, folders='none'):
+    if not isinstance(pattern,str) or not pattern.strip() or len(pattern)>200:
+        raise ValueError('Enter a filename format (maximum 200 characters)')
+    rest=re.sub(r'\{(artist|title|album|track|decade)\}', '', pattern)
+    if re.search(r'[{}<>:"/\\|?*\x00-\x1f]',rest):
+        raise ValueError('Use {artist}, {title}, {album}, {track}, {decade}; no path separators')
+    if folders not in FOLDERS:raise ValueError('Invalid folder structure')
+    return pattern,folders
+
+
+def safe_component(value):
+    value=re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', value).strip(' .')[:170].rstrip(' .') or 'Unknown'
+    if re.match(r'(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)',value):value='_'+value
+    return value
+
+
+def relative_path(tags, pattern=DEFAULT_FORMAT, folders='none'):
+    from pathlib import Path
+    validate_layout(pattern,folders)
+    date=(tags.get('DATE') or [''])[0]
+    year=re.match(r'^(\d{4})(?:$|[-/])',date)
+    values={'artist':'; '.join(tags.get('ARTIST') or ['Unknown artist']),
+            'title':(tags.get('TITLE') or ['Untitled'])[0],
+            'album':(tags.get('ALBUM') or ['Unknown album'])[0],
+            'track':(tags.get('TRACKNUMBER') or ['Unknown track'])[0],
+            'decade':str(int(year[1])//10*10)+'s' if year else 'Unknown decade'}
+    name=re.sub(r'\{(\w+)\}',lambda m:values[m[1]],pattern)
+    parts=[] if folders=='none' else [safe_component(values[k]) for k in folders.split('/')]
+    return Path(*parts,safe_component(name)+'.mp3')
