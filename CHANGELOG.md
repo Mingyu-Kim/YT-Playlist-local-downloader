@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.0 — Custom organization and background downloads
+
 - Add interactive filename fields and path previews with flat, artist, decade and combined folder layouts.
 - Load existing MP3s recursively for metadata edits and safe reorganization without re-encoding.
 - Prefetch audio during search/review and apply committed metadata only when saving.
