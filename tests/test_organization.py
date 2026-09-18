@@ -158,3 +158,75 @@ def test_local_retag_preserves_audio_and_romanizes_lyrics(tmp_path,monkeypatch):
     result=downloads.download(item,tmp_path,True,threading.Event(),lambda n:None,pattern='{title}')
     assert Path(result['file']).name=='Annyeong.mp3'
     assert downloads.MP3(result['file']).tags.getall('USLT')[0].text=='Annyeonghaseyo'
+
+
+@pytest.mark.parametrize('prefetched',[True,False])
+@pytest.mark.parametrize('cancelled',[True,False])
+def test_failed_save_keeps_staging_for_retry(tmp_path,monkeypatch,prefetched,cancelled):
+    import shutil
+    import controller as module
+    monkeypatch.setattr(module,'DATA',tmp_path)
+    monkeypatch.setattr(downloads,'DATA',tmp_path)
+    seed=audio_file(tmp_path/'seed.mp3',{'TITLE':['Seed']})
+    monkeypatch.setattr(downloads.subprocess,'Popen',lambda *a,**k:pytest.fail('Staged audio must not be encoded again'))
+    calls=[]
+    def fetch(item,temp,audio,cancel,progress):
+        calls.append(item['id']);shutil.copy2(seed,audio)
+    monkeypatch.setattr(module,'fetch_audio',fetch)
+    monkeypatch.setattr(downloads,'fetch_audio',lambda *a:pytest.fail('Save must use staged audio'))
+    c=module.Controller()
+    c.state.update(output=str(tmp_path/'output'),tracks=[{'id':'abcdefghijk','tags':{'TITLE':['Song'],'ARTIST':['Artist']},'status':'ready','warnings':[]}])
+    if prefetched:c.prefetch('abcdefghijk')
+    write=downloads.write_tags
+    def fail(*a,**k):
+        if cancelled:c.cancel.set();raise downloads.Cancelled()
+        raise OSError('Temporary tag-writing failure')
+    monkeypatch.setattr(downloads,'write_tags',fail)
+    c.download({});c.worker.join(5)
+    assert not c.state['busy'] and c.state['tracks'][0]['status']=='error'
+    staged=Path(c.staged['abcdefghijk']);assert staged.is_file()
+    monkeypatch.setattr(downloads,'write_tags',write)
+    c.download({'pattern':'{title}','folders':'artist'});c.worker.join(5)
+    assert not c.state['busy'] and c.state['tracks'][0]['status']=='downloaded'
+    assert calls==['abcdefghijk']
+    assert (tmp_path/'output'/'Artist'/'Song.mp3').is_file()
+    assert not c.staged and not staged.exists()
+
+
+def test_missing_staging_never_silently_downloads(tmp_path,monkeypatch):
+    item={'id':'abcdefghijk','tags':{'TITLE':['Song'],'ARTIST':['Artist']},'warnings':[]}
+    monkeypatch.setattr(downloads,'fetch_audio',lambda *a:pytest.fail('Missing stage must not trigger transfer'))
+    with pytest.raises(ValueError,match='Staged audio is missing'):
+        downloads.download(item,tmp_path,False,threading.Event(),lambda n:None,staged=tmp_path/'missing.mp3')
+
+
+def test_move_prunes_only_empty_source_ancestors(tmp_path):
+    root=tmp_path/'music'
+    old=audio_file(root/'old artist'/'1990s'/'song.mp3',{'TITLE':['Song'],'ARTIST':['Artist']})
+    unrelated=root/'unrelated empty';unrelated.mkdir()
+    item=downloads.load_local(root,threading.Event())[0]
+    result=downloads.download(item,root,False,threading.Event(),lambda n:None,pattern='{title}',folders='none')
+    assert Path(result['file'])==root/'Song.mp3'
+    assert not old.parent.exists() and not old.parent.parent.exists()
+    assert root.is_dir() and unrelated.is_dir()
+
+
+def test_cleanup_preserves_nonempty_parent_and_outside_root(tmp_path):
+    root=tmp_path/'music'
+    old=audio_file(root/'artist'/'1990s'/'song.mp3',{'TITLE':['Song'],'ARTIST':['Artist']})
+    note=root/'artist'/'notes.txt';note.write_text('keep me')
+    item=downloads.load_local(root,threading.Event())[0]
+    downloads.download(item,root,False,threading.Event(),lambda n:None,pattern='{title}',folders='none')
+    assert not old.parent.exists() and note.read_text()=='keep me'
+    outside=tmp_path/'outside';outside.mkdir()
+    downloads.clean_empty_parents(outside,root)
+    assert outside.is_dir()
+    downloads.clean_empty_parents(root,root)
+    assert root.is_dir()
+
+
+def test_cleanup_does_not_follow_links(tmp_path,monkeypatch):
+    root=tmp_path/'music';directory=root/'linked';directory.mkdir(parents=True)
+    monkeypatch.setattr(downloads.os.path,'isjunction',lambda path:Path(path)==directory)
+    downloads.clean_empty_parents(directory,root)
+    assert directory.is_dir()

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.1 — Staged audio reuse and folder cleanup
+
+- Preserve staged audio through failed/cancelled saves and reuse it on retry without another download or encode.
+- Clean empty old parent directories after successful folder reorganization, preserving the target root and unrelated files.
+
 - Remove macOS Actions jobs; automated CI/releases target Windows only, with free standard runners restricted to public repositories.
 
 ## 0.2.0 — Custom organization and background downloads

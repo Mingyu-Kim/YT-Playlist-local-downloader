@@ -158,7 +158,9 @@ def download(item,output,latin,cancel,progress,inventory=None,pattern=None,folde
             if pictures:cover=pictures[0].data
             shutil.copy2(cached[0],audio)
         else:
-            if staged and Path(staged).is_file():shutil.copy2(staged,audio)
+            if staged is not None:
+                if not Path(staged).is_file():raise ValueError('Staged audio is missing; start a new scan to fetch it again')
+                shutil.copy2(staged,audio)
             else:retry_audio(lambda:fetch_audio(item,temp,audio,cancel,progress),cancel)
         for url in dict.fromkeys(filter(None,[item.get('mb_cover_url'),item.get('cover_url')])):
             if cancel.is_set():raise Cancelled()
@@ -175,10 +177,23 @@ def download(item,output,latin,cancel,progress,inventory=None,pattern=None,folde
             # Hard-link publication fails atomically if another file claims the name.
             publish_new(audio,target)
         inventory.save(output,item['id'],target,profile)
-        if cached and Path(cached[0])!=target and Path(cached[0]).is_file() and digest(cached[0])==cached[1]:Path(cached[0]).unlink()
+        if cached and Path(cached[0])!=target and Path(cached[0]).is_file() and digest(cached[0])==cached[1]:
+            Path(cached[0]).unlink()
+            clean_empty_parents(Path(cached[0]).parent,output)
     result={'file':str(target),'status':'reused' if cached else 'downloaded','quality':quality}
     if item.get('local_file'):result.update(local_file=str(target),local_digest=digest(target))
     return result
+
+
+def clean_empty_parents(directory,output):
+    """Prune only emptied source ancestors, never the root or linked directories."""
+    output=Path(output).resolve();directory=Path(directory).absolute()
+    while directory!=output and directory.is_relative_to(output):
+        # Resolving must not redirect cleanup through a symlink/junction, even inside root.
+        if directory.is_symlink() or os.path.isjunction(directory) or directory.resolve()!=directory:return
+        try:directory.rmdir()
+        except OSError:return  # Nonempty, inaccessible, or changed concurrently: leave it.
+        directory=directory.parent
 
 
 def fetch_audio(item,temp,audio,cancel,progress):

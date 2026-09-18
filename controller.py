@@ -120,8 +120,9 @@ class Controller:
                 retry_audio(lambda:fetch_audio(item,folder,audio,self.cancel,lambda n:None),self.cancel)
                 self.staged[video]=str(audio)
             with self.lock:self.state['audio'][video]='staged'
-        except Exception:
+        except Exception as exc:
             with self.lock:self.state['audio'][video]='cancelled' if self.cancel.is_set() else 'failed'
+            return str(exc) or 'Audio staging was cancelled'
 
     def load_folder(self,data):
         output=Path(str(data.get('output',''))).expanduser()
@@ -187,6 +188,11 @@ class Controller:
                 def progress(value):
                     with self.lock:self.state['progress']=round((i+value/100)*100/max(1,len(items)))
                 try:
+                    # Stage any audio not prefetched during review, so a later tagging or
+                    # publication failure cannot discard it and force another transfer.
+                    if not item.get('local_file') and item['id'] not in self.staged and not inventory.find(Path(self.state['output']).resolve(),item['id']):
+                        error=self.prefetch(item['id'])
+                        if error:raise RuntimeError(error)
                     result=download(item,self.state['output'],latin,self.cancel,progress,inventory,pattern,folders,self.staged.get(item['id']))
                     with self.lock:item.update(result)
                     staged=self.staged.pop(item['id'],None)
@@ -197,6 +203,8 @@ class Controller:
                 with self.lock:self.state['progress']=round((i+1)*100/max(1,len(items)))
                 self.save()
             with self.lock:self.state.update(phase='complete',message='')
-            self.staged.clear();self.staging.cleanup()
-            self.staging=tempfile.TemporaryDirectory(prefix='.yt-pl-audio-',dir=DATA)
+            # Failed/skipped songs retain their audio for another save in this session.
+            if not self.staged:
+                self.staging.cleanup()
+                self.staging=tempfile.TemporaryDirectory(prefix='.yt-pl-audio-',dir=DATA)
         self.start(work)
