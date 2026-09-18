@@ -22,6 +22,8 @@ Read this file, README.md (or README.ko.md), docs/ARCHITECTURE.md and the releva
 - Do not commit executables, downloads, .venv, tools binaries, personal logs, tokens, session state or VERIFICATION.json.
 - Keep changes focused. Existing compact formatting is technical debt, not a reason to reformat unrelated modules.
 
+- Actions must use only free standard runners in public repositories. Guard every hosted job against private repositories. No paid runners, artifact storage, caches or paid fallback; use local builds for private repositories.
+
 ## Validation and handoff
 
 Install requirements/dev.txt; prepare native tools as described in docs/RELEASING.md. Run `python -m pytest`, `python -m ruff check .`, and `tools/node --check web/app.js` (Windows: tools/node.exe).

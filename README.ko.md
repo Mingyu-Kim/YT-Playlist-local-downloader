@@ -75,6 +75,8 @@ python scripts/build.py
 
 [빌드·배포 안내](docs/RELEASING.md)에서 플랫폼별 빌드, 소스 묶음, 체크섬 및 서명 제한을 확인하세요. `--no-browser`, `--data-dir PATH`로 테스트 환경을 분리할 수 있습니다.
 
+CI와 배포는 공개 저장소의 무료 표준 호스팅 러너만 사용합니다. 비공개 저장소에서는 호스팅 작업을 건너뛰며 로컬 빌드를 사용하세요. 배포 파일은 Actions 아티팩트 저장소 대신 Release에 직접 업로드합니다. macOS 지원은 유지합니다.
+
 ## 🤝 기여 및 LLM 활용
 
 [CONTRIBUTING.md](CONTRIBUTING.md), [구조 설명](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md)를 먼저 읽으세요. LLM에 이 파일들과 구체적인 작업을 전달하면 기존 동작을 유지하면서 개선하기 쉽습니다. [AI 작업 예시](docs/AI_DEVELOPMENT.md)도 제공합니다. 자동 테스트는 임시 폴더를 사용하며 실제 음악 다운로드를 기본으로 실행하지 않습니다.

@@ -11,4 +11,5 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    if: github.event.repository.private == false
     uses: ./.github/workflows/native-build.yml

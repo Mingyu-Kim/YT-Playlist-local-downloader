@@ -31,9 +31,9 @@ The package script reads committed source (`git archive HEAD`). **Commit all rel
 
 1. Merge tested changes into `main` and set VERSION (e.g. `0.1.0`).
 2. Tag the matching commit: `git tag v0.1.0` and `git push origin v0.1.0`.
-3. The release workflow builds/tests each native target, collects notices and corresponding sources, and uploads checksummed artifacts.
-4. A **draft** GitHub Release is created only after all builds pass. Inspect assets, source bundles and platform results before publishing it.
-5. Manual workflow dispatch builds validation artifacts without publishing a release.
+3. The release workflow prepares a **draft**, builds/tests each native target, and uploads binaries, corresponding sources and checksums directly to that draft.
+4. The final job checks all nine assets and updates the draft notes only after all builds pass. Failed builds leave an incomplete draft; never publish it. Inspect assets, source bundles and platform results before publishing.
+5. Manual workflow dispatch on a branch validates packages without uploading or publishing; tag dispatch resumes the draft flow.
 
 Pull-request CI has read-only permissions. Only the release publishing job gets `contents: write`; actions are pinned to commit SHAs. Dependency updates are proposed monthly. No signing key, Apple account or external credential is required for unsigned draft builds.
 
@@ -44,3 +44,9 @@ Windows Authenticode and Apple Developer ID/notarization are not configured. Do 
 ## License/source gate
 
 Ship each native ZIP alongside its matching `-sources.zip` and checksums. Keep THIRD_PARTY_NOTICES.md accurate. A source-only GitHub archive is insufficient for bundled dependencies. Sources and license notices are generated from the actual build environment. See the distribution instructions there before mirroring or modifying releases.
+
+## Strict free-runner policy
+
+Run hosted CI and release jobs only in public repositories, using standard `windows-2022`, `macos-15`, `macos-15-intel` and `ubuntu-latest` runners. Every hosted job is guarded with `github.event.repository.private == false`; private repositories must build/package locally. Do not introduce larger/custom runners, Actions artifact uploads, paid caches, or a paid fallback. Release ZIPs go directly to GitHub Release assets; no Actions artifact storage is used. macOS remains supported because these standard runners are free for public repositories. See https://docs.github.com/en/billing/concepts/product-billing/github-actions.
+
+These workflow guards do not change account billing settings or prevent charges from unrelated repositories or older workflow revisions. Recheck GitHub's pricing before changing this policy.

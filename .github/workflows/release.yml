@@ -9,12 +9,37 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  prepare:
+    if: github.event.repository.private == false && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare draft for direct uploads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$(cat VERSION)"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "YT-PL-Downloader $RELEASE_TAG" --notes "Native builds pending. Do not publish until all three platforms pass."
+          fi
   build:
+    needs: prepare
+    if: always() && github.event.repository.private == false && (needs.prepare.result == 'success' || (github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/v')))
+    permissions:
+      contents: write
     uses: ./.github/workflows/native-build.yml
     with:
       package: true
+      release_tag: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
   draft:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event.repository.private == false && startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -23,14 +48,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: release
-          merge-multiple: true
-      - name: Verify version and create draft release
+      - name: Verify complete release assets and update draft notes
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           test "$RELEASE_TAG" = "v$(cat VERSION)"
-          gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "YT-PL-Downloader $RELEASE_TAG" --notes-file CHANGELOG.md
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets.txt
+          for target in windows-x64 macos-arm64 macos-x64; do
+            for suffix in .zip -sources.zip .sha256; do
+              grep -Fx "YT-PL-Downloader-${RELEASE_TAG#v}-$target$suffix" assets.txt
+            done
+          done
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file CHANGELOG.md

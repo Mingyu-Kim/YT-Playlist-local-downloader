@@ -75,6 +75,8 @@ python scripts/build.py
 
 See [release/build instructions](docs/RELEASING.md) for Windows compiler setup, native Mac builds, source bundles, checksums and signing limitations. `--no-browser` and `--data-dir PATH` support isolated testing.
 
+CI and releases use only standard free hosted runners in public repositories. Hosted jobs skip private repositories; build locally instead. Release bundles upload directly to Release assets, without Actions artifact storage. macOS support is retained.
+
 ## 🤝 Contribute
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/ARCHITECTURE.md), and [AGENTS.md](AGENTS.md). Give an LLM those files plus your specific task; [AI examples](docs/AI_DEVELOPMENT.md) describe focused workflows. Tests must use temporary folders and must not download real playlists by default.

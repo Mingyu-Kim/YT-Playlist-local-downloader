@@ -5,10 +5,14 @@ on:
       package:
         type: boolean
         default: false
-permissions:
-  contents: read
+      release_tag:
+        type: string
+        default: ''
+# Inherit read-only CI permissions or release-only contents:write from the caller.
 jobs:
   native:
+    # Standard hosted runners are free only while the repository is public.
+    if: github.event.repository.private == false
     strategy:
       fail-fast: false
       matrix:
@@ -63,11 +67,9 @@ jobs:
         run: |
           python scripts/collect_sources.py
           python scripts/package_release.py
-      - name: Upload release bundles
-        if: inputs.package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: ${{ matrix.target }}
-          path: release/*
-          if-no-files-found: error
-          retention-days: 14
+      - name: Upload directly to draft release (no Actions artifact storage)
+        if: inputs.package && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber

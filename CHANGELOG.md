@@ -4,6 +4,8 @@
 
 ## 0.2.0 — Custom organization and background downloads
 
+- Restrict hosted workflows to free standard runners in public repositories; upload directly to Release assets without Actions artifact storage.
+
 - Add interactive filename fields and path previews with flat, artist, decade and combined folder layouts.
 - Load existing MP3s recursively for metadata edits and safe reorganization without re-encoding.
 - Prefetch audio during search/review and apply committed metadata only when saving.
