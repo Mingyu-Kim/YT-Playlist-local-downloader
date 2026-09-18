@@ -9,6 +9,8 @@ Read this file, README.md (or README.ko.md), docs/ARCHITECTURE.md and the releva
 - Output: user-defined filename format and flat/artist/decade folder structure; default Artist - Title MP3 in a flat folder. 320 kbps for new downloads. Do not re-encode existing audio to change tags.
 - Prefer published English metadata; never translate/guess music identities. Optional Korean Revised Romanization applies to ALL textual tags and filenames.
 - Review completed songs during search; prefetch audio during scan/review into temporary staging, but publish only after scan and edits finish. Preserve committed edits. Network operations must not hold the controller state lock.
+- Keep completed staged audio through failed/cancelled saves and reuse it without another download or encode. A missing supplied staged file must fail visibly. Staging is session-scoped.
+- After successful moves, remove only empty old parent directories within the output root; preserve the root, symlinks/junctions, nonempty directories and unrelated empty folders.
 - Recover downloads from embedded YouTube source identifiers, not filenames. Protect unrelated files and detect changed files before overwriting.
 - Maintain EN/KO labels, system light/dark theme, keyboard labels, and preview stop behavior.
 
@@ -21,7 +23,6 @@ Read this file, README.md (or README.ko.md), docs/ARCHITECTURE.md and the releva
 - Preserve source tags/profile recovery and atomic JSON writes. Test cancellation, collisions and database-loss reuse for relevant changes.
 - Do not commit executables, downloads, .venv, tools binaries, personal logs, tokens, session state or VERIFICATION.json.
 - Keep changes focused. Existing compact formatting is technical debt, not a reason to reformat unrelated modules.
-
 - Actions must use only standard windows-2022 and ubuntu-latest runners in public repositories. No macOS Actions jobs; macOS builds are local only. Guard every hosted job against private repositories. No paid runners, artifact storage, caches or paid fallback; use local builds for private repositories.
 
 ## Validation and handoff

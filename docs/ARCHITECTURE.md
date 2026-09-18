@@ -22,6 +22,16 @@ The app uses Python's standard HTTP server and plain HTML/CSS/JavaScript. Keepin
 
 Session JSON is saved atomically. Restoring an interrupted operation resets transient busy/editing state. Browser polling must not reset open editor fields or recreate a playing iframe.
 
+### Staged-audio lifecycle
+
+1. Scan the target tree for verified source-tagged MP3s before scheduling transfers.
+2. Prefetch missing audio into a temporary directory under the app-data directory while metadata search and review continue.
+3. At save time, reuse verified local audio or copy the completed staged MP3, then apply committed metadata and the selected path. Missing prefetch audio is staged at this point.
+4. Release a song's staged file only after successful publication. Preserve staging for failed/cancelled saves and skipped songs so another save in the same session needs no new transfer or encode.
+5. Starting a new scan or exiting clears staging. Session JSON restores the review, not staged audio; source tags recover successfully published files after a restart.
+
+A supplied staged path that no longer exists is a visible error, not permission to fetch again. Staging errors and final publication errors remain separate from metadata edits.
+
 ## Data and audio safety
 
 `library.sqlite3` is a cache, not the only source of identity. Scan MP3 descendants (excluding symlinks, directory junctions and temporary work directories) for `TXXX:YOUTUBE_ID`, legacy source URLs and `WOAS`. Conflicting identifiers and invalid MP3s are ignored. `YTPL_PROFILE` records the applied metadata profile. File SHA-256 detects external changes. Work happens in a temporary directory under the output directory, then atomic replacement publishes an existing owned file; new destinations use no-clobber rename on Windows or hard links on macOS (exclusive-copy fallback on filesystems without hard links); unrelated files must never be overwritten.
@@ -39,3 +49,7 @@ Audio transfer and conversion use an initial attempt plus five cancellable retri
 ## Known constraints
 
 No authenticated/private playlists; upstream APIs can change. Embedded preview playback may be restricted. No translations or guaranteed complete metadata. UI strings are maintained in web/app.js. There is no formal schema migration framework yet; extend persisted fields compatibly. Live-network tests are explicit opt-in only.
+
+## Build and automation boundaries
+
+Hosted CI and release packaging target Windows x64 only. The workflows allow standard `windows-2022` and `ubuntu-latest` runners in public repositories and skip private repositories. There are no macOS Actions jobs, paid runners, Actions artifact uploads or cache actions. Binary/source ZIPs and checksums upload directly to a draft GitHub Release. Local macOS code/build support remains, but Windows validation does not establish macOS compatibility. See [RELEASING.md](RELEASING.md) for local package and publication steps.

@@ -6,9 +6,13 @@ Thanks for helping improve YT-PL-Downloader. Read [AGENTS.md](AGENTS.md) and [ar
 2. Create a branch (`fix/...`, `feat/...`, or `docs/...`) from `main`.
 3. Set up Python 3.14 and `requirements/dev.txt`; follow [native tool setup](docs/RELEASING.md).
 4. Add regression tests for behavior changes. Default tests are offline and use temporary paths.
-5. Run `python -m pytest`, `python -m ruff check .`, and the JavaScript syntax check.
+5. Run `python -m pytest`, `python -m ruff check .`, and `tools/node.exe --check web/app.js` on Windows (`tools/node --check web/app.js` for local macOS development).
 6. Update English/Korean documentation and the changelog when relevant.
 7. Explain the problem, final behavior, tests and limitations in the PR. Include screenshots for UI changes when useful.
+
+For download or organization changes, cover staged-audio reuse after failure/cancellation, collisions, changed-file protection, database-loss recovery, and empty-directory cleanup boundaries. Tests must not transfer real songs. Keep the output root and unrelated files/directories intact.
+
+Hosted automation builds Windows only on public repositories using the allowed standard runners. Do not add macOS jobs, larger/custom runners, Actions artifact storage, paid caches or a paid fallback. Follow [RELEASING.md](docs/RELEASING.md) for local builds and source-matched packages; local packaging and GitHub publication are separate actions.
 
 Never attach real music, cookies, tokens, personal library databases, absolute personal paths or unredacted logs. AI-assisted contributions are welcome; the contributor must review the code and run validation. [AI development guide](docs/AI_DEVELOPMENT.md).
 

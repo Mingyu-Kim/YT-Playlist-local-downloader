@@ -27,10 +27,37 @@ python scripts/package_release.py
 
 The package script reads committed source (`git archive HEAD`). **Commit all release changes before packaging**; do not distribute a binary built from changes absent from the source archive. Check `VERSION`, changelog and README together. Test release artifacts after extraction, including paths with spaces/non-ASCII characters, folder picker, repeat launch, Ctrl+C, source-tag reuse and bilingual UI.
 
+## Local Windows package
+
+After preparing Node and source-built FFmpeg above, run these commands from the repository root in PowerShell. The pinned dependency sources are required even for a local distribution package.
+
+```powershell
+.venv/Scripts/python.exe -m pytest
+.venv/Scripts/python.exe -m ruff check .
+tools/node.exe --check web/app.js
+.venv/Scripts/python.exe scripts/build.py
+.venv/Scripts/python.exe scripts/smoke_release.py
+.venv/Scripts/python.exe scripts/collect_sources.py
+# Commit the intended source, VERSION and documentation changes before packaging.
+.venv/Scripts/python.exe scripts/package_release.py
+```
+
+Stop if a command fails. `build.py` creates `dist/YT-PL-Downloader.exe` and a convenience copy at the repository root. `package_release.py` requires a clean working tree and creates:
+
+| File in `release/` | Contents |
+| --- | --- |
+| `YT-PL-Downloader-<version>-windows-x64.zip` | Executable, bundled tools, documentation, licenses, build provenance and per-file checksums |
+| `YT-PL-Downloader-<version>-windows-x64-sources.zip` | Committed project source plus matching dependency sources and build recipes |
+| `YT-PL-Downloader-<version>-windows-x64.sha256` | SHA-256 checksums for both ZIPs |
+
+Use a new version when packaging changed behavior; do not overwrite an already published version with different contents. A local build, source commit or ZIP does not publish a GitHub release. Keep the binary and corresponding source ZIP together when distributing them.
+
+Verify the ZIP hashes against the `.sha256` file (`Get-FileHash -Algorithm SHA256 <path>`), inspect `build-info.json` for the expected version/commit, then extract and test the executable from a path containing spaces and non-ASCII characters. The native smoke test checks bundled tools, local HTTP startup and shutdown; it does not perform a live YouTube download.
+
 ## GitHub release flow
 
-1. Merge tested changes into `main` and set VERSION (e.g. `0.1.0`).
-2. Tag the matching commit: `git tag v0.1.0` and `git push origin v0.1.0`.
+1. Merge tested changes into `main` and set `VERSION` to the intended new version.
+2. Push the intended source commit, then tag it as `v<version>` matching `VERSION` and push that tag. Never move a published release tag.
 3. The release workflow prepares a **draft**, builds/tests Windows x64, and uploads binaries, corresponding sources and checksums directly to that draft.
 4. The final job checks the three Windows assets and updates the draft notes only after all builds pass. Failed builds leave an incomplete draft; never publish it. Inspect assets, source bundles and platform results before publishing.
 5. Manual workflow dispatch on a branch validates packages without uploading or publishing; tag dispatch resumes the draft flow.

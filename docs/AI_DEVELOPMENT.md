@@ -10,15 +10,21 @@ For a UI task:
 
 > Add [control] in English and Korean. Preserve system themes and accessibility labels. Do not interrupt active previews or overwrite unsaved editor fields while polling. Verify the local UI using isolated test data.
 
+For download or folder changes:
+
+> Reuse completed staged audio during saving and keep it after failed/cancelled saves. Never re-encode reused audio. Remove only empty old parent directories after a successful move, stopping before the output root and at linked/nonempty folders. Test retries and cleanup boundaries with temporary MP3s and blocked network/encoding calls.
+
 For release work:
 
-> Read docs/RELEASING.md and THIRD_PARTY_NOTICES.md. Update only the intended dependency/tool versions and checksum manifest. Keep source archives and notices aligned. Run native tests and packaged smoke checks. Report unavailable platforms honestly.
+> Read docs/RELEASING.md and THIRD_PARTY_NOTICES.md. Update only the intended dependency/tool versions and checksum manifest. Keep source archives and notices aligned. Build/package Windows locally unless publication is requested. Commit intended source changes before packaging so binary and source ZIPs match. Run native tests and packaged smoke checks. Hosted workflows must stay Windows-only, public-only and on allowed standard runners, with no paid fallback or Actions artifact storage. Report unavailable platforms honestly.
 
 ## Review checklist
 
 - Does the change solve the reported issue without touching personal files?
 - Are all network requests outside the shared state lock?
-- Can cancellation, restart and database-loss reuse still work?
+- Does a failed/cancelled save retain completed staging for same-session retry?
+- Are the limits of staging across restarts clear, and does database-loss reuse still work?
+- Does directory cleanup preserve the output root, links, nonempty folders and unrelated directories?
 - Are English/Korean text, docs and tests updated together?
 - Are dependency sources/licenses included and checksums verified?
 - Did the assistant actually run the checks it reports?
