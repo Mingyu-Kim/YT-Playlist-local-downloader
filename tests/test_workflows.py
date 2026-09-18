@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def test_hosted_jobs_are_public_only_and_standard():
-    allowed={'ubuntu-latest','windows-2022','macos-15','macos-15-intel'}
+    allowed={'ubuntu-latest','windows-2022'}
     for path in (ROOT/'.github/workflows').glob('*.yml'):
         text=path.read_text(encoding='utf-8')
         jobs=text.split('\njobs:\n',1)[1]
@@ -19,6 +19,7 @@ def test_hosted_jobs_are_public_only_and_standard():
                 assert runner in allowed,path
         assert 'actions/upload-artifact@' not in text,path
         assert 'actions/cache@' not in text,path
+        assert 'macos' not in text.lower(),path
 
 
 def test_release_uploads_directly_and_stays_draft():

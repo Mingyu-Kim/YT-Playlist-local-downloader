@@ -26,7 +26,7 @@ Choose your platform from **[Releases](https://github.com/Mingyu-Kim/YT-Playlist
 | macOS Apple Silicon | `YT-PL-Downloader-<version>-macos-arm64.zip` | Double-click `Launch.command` |
 | macOS Intel | `YT-PL-Downloader-<version>-macos-x64.zip` | Double-click `Launch.command` |
 
-Each archive includes a native executable, bundled Node/FFmpeg, notices and checksums. No Python or Node installation is needed. macOS artifacts are built on macOS; availability depends on successful release CI. Builds are currently unsigned and not Apple-notarized. Do not disable system security protections; use a trusted source build if your system rejects an unsigned download.
+Each archive includes a native executable, bundled Node/FFmpeg, notices and checksums. No Python or Node installation is needed. Future automated releases target Windows only. Existing macOS assets remain available in older releases; new macOS builds must be made locally on macOS. Builds are currently unsigned and not Apple-notarized. Do not disable system security protections; use a trusted source build if your system rejects an unsigned download.
 
 1. Launch the app. A terminal shows the local URL and opens your browser.
 2. Paste a **public or unlisted YouTube Music playlist**, choose an output folder, then select **Find songs & metadata**.
@@ -75,7 +75,7 @@ python scripts/build.py
 
 See [release/build instructions](docs/RELEASING.md) for Windows compiler setup, native Mac builds, source bundles, checksums and signing limitations. `--no-browser` and `--data-dir PATH` support isolated testing.
 
-CI and releases use only standard free hosted runners in public repositories. Hosted jobs skip private repositories; build locally instead. Release bundles upload directly to Release assets, without Actions artifact storage. macOS support is retained.
+CI and releases use only standard free hosted runners in public repositories. Hosted jobs skip private repositories; build locally instead. Release bundles upload directly to Release assets, without Actions artifact storage. macOS Actions jobs are disabled; macOS builds are local only.
 
 ## 🤝 Contribute
 

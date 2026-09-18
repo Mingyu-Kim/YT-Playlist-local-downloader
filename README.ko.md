@@ -26,7 +26,7 @@
 | macOS Apple Silicon | `YT-PL-Downloader-<version>-macos-arm64.zip` | `Launch.command` 더블클릭 |
 | macOS Intel | `YT-PL-Downloader-<version>-macos-x64.zip` | `Launch.command` 더블클릭 |
 
-Node/FFmpeg가 포함되어 Python·Node 별도 설치가 필요 없습니다. 라이선스 안내와 체크섬도 함께 제공합니다. macOS 파일은 macOS CI에서 빌드하며, 성공한 배포에만 포함됩니다. 현재 바이너리는 서명 및 Apple 공증이 없습니다. 시스템 보안을 해제하지 마세요. 서명되지 않은 앱이 차단되면 신뢰할 수 있는 소스에서 직접 빌드하세요.
+Node/FFmpeg가 포함되어 Python·Node 별도 설치가 필요 없습니다. 라이선스 안내와 체크섬도 함께 제공합니다. 앞으로 자동 배포는 Windows만 대상으로 합니다. 기존 macOS 파일은 이전 배포에서 받을 수 있으며 새 macOS 빌드는 macOS에서 로컬로 진행해야 합니다. 현재 바이너리는 서명 및 Apple 공증이 없습니다. 시스템 보안을 해제하지 마세요. 서명되지 않은 앱이 차단되면 신뢰할 수 있는 소스에서 직접 빌드하세요.
 
 1. 앱을 실행하면 터미널에 로컬 주소가 표시되고 브라우저가 열립니다.
 2. **공개/일부 공개 YouTube Music 플레이리스트**와 저장 폴더를 입력하고 **곡과 메타데이터 찾기**를 누르세요.
@@ -75,7 +75,7 @@ python scripts/build.py
 
 [빌드·배포 안내](docs/RELEASING.md)에서 플랫폼별 빌드, 소스 묶음, 체크섬 및 서명 제한을 확인하세요. `--no-browser`, `--data-dir PATH`로 테스트 환경을 분리할 수 있습니다.
 
-CI와 배포는 공개 저장소의 무료 표준 호스팅 러너만 사용합니다. 비공개 저장소에서는 호스팅 작업을 건너뛰며 로컬 빌드를 사용하세요. 배포 파일은 Actions 아티팩트 저장소 대신 Release에 직접 업로드합니다. macOS 지원은 유지합니다.
+CI와 배포는 공개 저장소의 무료 표준 호스팅 러너만 사용합니다. 비공개 저장소에서는 호스팅 작업을 건너뛰며 로컬 빌드를 사용하세요. 배포 파일은 Actions 아티팩트 저장소 대신 Release에 직접 업로드합니다. macOS Actions 작업은 사용하지 않으며 macOS 빌드는 로컬에서만 진행합니다.
 
 ## 🤝 기여 및 LLM 활용
 

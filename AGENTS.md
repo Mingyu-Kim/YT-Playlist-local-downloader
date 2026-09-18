@@ -22,7 +22,7 @@ Read this file, README.md (or README.ko.md), docs/ARCHITECTURE.md and the releva
 - Do not commit executables, downloads, .venv, tools binaries, personal logs, tokens, session state or VERIFICATION.json.
 - Keep changes focused. Existing compact formatting is technical debt, not a reason to reformat unrelated modules.
 
-- Actions must use only free standard runners in public repositories. Guard every hosted job against private repositories. No paid runners, artifact storage, caches or paid fallback; use local builds for private repositories.
+- Actions must use only standard windows-2022 and ubuntu-latest runners in public repositories. No macOS Actions jobs; macOS builds are local only. Guard every hosted job against private repositories. No paid runners, artifact storage, caches or paid fallback; use local builds for private repositories.
 
 ## Validation and handoff
 

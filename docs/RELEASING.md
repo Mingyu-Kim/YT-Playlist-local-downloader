@@ -2,7 +2,7 @@
 
 ## Targets
 
-Python **3.14.0**; Windows x64, macOS Apple Silicon and macOS Intel. Build each target on that OS/architecture—PyInstaller does not cross-build macOS executables on Windows. CI uses `windows-2022`, `macos-15` (arm64) and `macos-15-intel` (x64). macOS outputs are console binaries with an executable `Launch.command`; this preserves the visible terminal behavior.
+Python **3.14.0**; Windows x64, macOS Apple Silicon and macOS Intel. Build each target on that OS/architecture—PyInstaller does not cross-build macOS executables on Windows. Hosted CI and releases build Windows x64 only on `windows-2022`. macOS requires a local native build; there are no macOS Actions jobs. macOS outputs are console binaries with an executable `Launch.command`; this preserves the visible terminal behavior.
 
 ## Build prerequisites
 
@@ -31,11 +31,11 @@ The package script reads committed source (`git archive HEAD`). **Commit all rel
 
 1. Merge tested changes into `main` and set VERSION (e.g. `0.1.0`).
 2. Tag the matching commit: `git tag v0.1.0` and `git push origin v0.1.0`.
-3. The release workflow prepares a **draft**, builds/tests each native target, and uploads binaries, corresponding sources and checksums directly to that draft.
-4. The final job checks all nine assets and updates the draft notes only after all builds pass. Failed builds leave an incomplete draft; never publish it. Inspect assets, source bundles and platform results before publishing.
+3. The release workflow prepares a **draft**, builds/tests Windows x64, and uploads binaries, corresponding sources and checksums directly to that draft.
+4. The final job checks the three Windows assets and updates the draft notes only after all builds pass. Failed builds leave an incomplete draft; never publish it. Inspect assets, source bundles and platform results before publishing.
 5. Manual workflow dispatch on a branch validates packages without uploading or publishing; tag dispatch resumes the draft flow.
 
-Pull-request CI has read-only permissions. Only the release publishing job gets `contents: write`; actions are pinned to commit SHAs. Dependency updates are proposed monthly. No signing key, Apple account or external credential is required for unsigned draft builds.
+Pull-request CI has read-only permissions. Only release jobs get `contents: write`; actions are pinned to commit SHAs. Dependency updates are proposed monthly. No signing key, Apple account or external credential is required for unsigned draft builds.
 
 ## Signing and limitations
 
@@ -47,6 +47,6 @@ Ship each native ZIP alongside its matching `-sources.zip` and checksums. Keep T
 
 ## Strict free-runner policy
 
-Run hosted CI and release jobs only in public repositories, using standard `windows-2022`, `macos-15`, `macos-15-intel` and `ubuntu-latest` runners. Every hosted job is guarded with `github.event.repository.private == false`; private repositories must build/package locally. Do not introduce larger/custom runners, Actions artifact uploads, paid caches, or a paid fallback. Release ZIPs go directly to GitHub Release assets; no Actions artifact storage is used. macOS remains supported because these standard runners are free for public repositories. See https://docs.github.com/en/billing/concepts/product-billing/github-actions.
+Run hosted CI and release jobs only in public repositories, using standard `windows-2022` and `ubuntu-latest` runners. Every hosted job is guarded with `github.event.repository.private == false`; private repositories must build/package locally. Do not introduce larger/custom runners, Actions artifact uploads, paid caches, or a paid fallback. Release ZIPs go directly to GitHub Release assets; no Actions artifact storage is used. Do not add macOS Actions runners. macOS builds are local only. See https://docs.github.com/en/billing/concepts/product-billing/github-actions.
 
 These workflow guards do not change account billing settings or prevent charges from unrelated repositories or older workflow revisions. Recheck GitHub's pricing before changing this policy.

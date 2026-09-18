@@ -19,10 +19,6 @@ jobs:
         include:
           - os: windows-2022
             target: windows-x64
-          - os: macos-15
-            target: macos-arm64
-          - os: macos-15-intel
-            target: macos-x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     defaults:
@@ -50,14 +46,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: bash scripts/build_ffmpeg.sh
-      - name: Compile FFmpeg on macOS
-        if: runner.os == 'macOS'
-        run: bash scripts/build_ffmpeg.sh
       - name: Test and lint
         run: |
           python -m pytest
           python -m ruff check .
-          if [ "$RUNNER_OS" = Windows ]; then tools/node.exe --check web/app.js; else tools/node --check web/app.js; fi
+          tools/node.exe --check web/app.js
       - name: Build native executable
         run: python scripts/build.py
       - name: Smoke-test native executable

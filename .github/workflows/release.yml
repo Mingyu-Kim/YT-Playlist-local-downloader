@@ -27,7 +27,7 @@ jobs:
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
           else
-            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "YT-PL-Downloader $RELEASE_TAG" --notes "Native builds pending. Do not publish until all three platforms pass."
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "YT-PL-Downloader $RELEASE_TAG" --notes "Native builds pending. Do not publish until the Windows build passes."
           fi
   build:
     needs: prepare
@@ -56,7 +56,7 @@ jobs:
           test "$RELEASE_TAG" = "v$(cat VERSION)"
           test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets.txt
-          for target in windows-x64 macos-arm64 macos-x64; do
+          for target in windows-x64; do
             for suffix in .zip -sources.zip .sha256; do
               grep -Fx "YT-PL-Downloader-${RELEASE_TAG#v}-$target$suffix" assets.txt
             done

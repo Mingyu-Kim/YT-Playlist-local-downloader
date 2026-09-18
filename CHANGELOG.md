@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove macOS Actions jobs; automated CI/releases target Windows only, with free standard runners restricted to public repositories.
+
 ## 0.2.0 — Custom organization and background downloads
 
 - Restrict hosted workflows to free standard runners in public repositories; upload directly to Release assets without Actions artifact storage.
